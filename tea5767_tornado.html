@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FM Radio Tuner</title>
+<style type="text/css">
+    * {
+        margin: 0; 
+        padding: 0; 
+        box-sizing: border-box; 
+        outline: none;
+    }
+
+    body {
+        background: linear-gradient(135deg, #121212 0%, #1e1e1e 100%);
+        color: #e0e0e0;
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+    a { text-decoration: none; color: #2187e7; }
+
+    /* Header Styling */
+    h1 {
+        font-weight: 300;
+        font-size: 2.5em;
+        padding: 20px 10px 5px;
+        text-align: center;
+        color: #ffffff;
+        letter-spacing: 1px;
+    }
+
+    h1 small {
+        font-size: 0.35em;
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+        display: block;
+        color: #888;
+        margin-bottom: 15px;
+    }
+
+    /* Main Content Container */
+    .container {
+        width: 100%;
+        max-width: 800px;
+        margin: 0 auto;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    /* Display Screens */
+    #station {
+        font-size: 3.5em;
+        font-weight: bold;
+        color: #2187e7;
+        text-align: center;
+        margin: 20px 0 5px;
+        text-shadow: 0 0 10px rgba(33, 135, 231, 0.3);
+    }
+
+    #display {
+        font-size: 1.1em;
+        color: #a0eaff;
+        text-align: center;
+        margin-bottom: 30px;
+        min-height: 25px;
+    }
+
+    /* Modern Buttons */
+    .controls {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    button {
+        background: #2187e7;
+        border: none;
+        color: #ffffff;
+        padding: 12px 24px;
+        font-size: 1em;
+        font-weight: 600;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        min-width: 140px;
+    }
+
+    button:hover {
+        background: #1976d2;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(33, 135, 231, 0.4);
+    }
+
+    button:active {
+        transform: translateY(0);
+    }
+
+    button#off {
+        background: #d32f2f;
+        margin-top: 20px;
+    }
+
+    button#off:hover {
+        background: #b71c1c;
+        box-shadow: 0 6px 12px rgba(211, 47, 47, 0.4);
+    }
+
+    /* Signal Loader Bar */
+    ul#loadbar {
+        list-style: none;
+        display: flex;
+        gap: 4px;
+        margin: 20px auto 40px;
+    }
+
+    ul#loadbar li {
+        width: 15px;
+        height: 35px;
+        background: #2a2a2a;
+        border-radius: 3px;
+        border: 1px solid #111;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    ul#loadbar li.on {
+        background: linear-gradient(180deg, #a0eaff 0%, #2187e7 100%);
+        box-shadow: 0 0 8px rgba(33, 135, 231, 0.6);
+        opacity: 0;
+        animation: fill 0.3s ease-out forwards;
+    }
+
+    @keyframes fill {
+        0% { opacity: 0; transform: scaleY(0.8); }
+        100% { opacity: 1; transform: scaleY(1); }	
+    }
+
+    /* Footer & Logos */
+    .footer {
+        width: 100%;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 25px 20px;
+        margin-top: auto;
+        border-top: 1px solid #333;
+        text-align: center;
+    }
+
+    .logo-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 30px;
+        margin-bottom: 15px;
+    }
+
+    .footer-icon {
+        height: 45px;
+        width: auto;
+        opacity: 0.8;
+        transition: opacity 0.3s ease;
+    }
+
+    .footer-icon:hover {
+        opacity: 1;
+    }
+
+    .footer-name {
+        color: #888;
+        font-size: 0.9em;
+        letter-spacing: 0.5px;
+    }
+</style>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+<script>
+$(document).ready(function(){
+    var lastsignal = 0;
+
+    try{
+        var ws = new WebSocket("ws://192.168.1.2:8888/ws"); 
+
+        ws.onmessage = function(evt) {
+            $("#display").html("The beginning ");
+            getFreq(evt.data);
+        };
+
+        ws.onopen = function(evt) { 
+            $("#display").html("Connection ready");
+        };
+
+    }catch(exception){
+        $("#display").html(exception);
+        alert(exception);
+    }
+
+    function getFreq(jsondata){
+        try{
+            var obj = jQuery.parseJSON(jsondata);
+            strength = obj.level/14*100;
+            strength = strength.toFixed(2);
+            var desc = "";
+            if(obj.mute==0)
+                desc = obj.stereo;
+            else
+                desc = "muted";
+            
+            data = obj.freq + "FM. Signal strength: " + strength + "% (" + desc + ")";
+            $("#display").html(data);
+
+            if(obj.mute)
+                $("#mute").text("Unmute");
+            else
+                $("#mute").text("Mute");
+            
+            if(lastsignal<obj.level)
+                increasesignal(lastsignal,obj.level);
+            else if(lastsignal>obj.level)
+                reducesignal(lastsignal,obj.level);
+            
+            $("#station").html(obj.freq + " <span style='font-size:0.5em; color:#888;'>MHz</span>");
+
+        }catch(err){
+            $("#display").html(err.message);
+        }
+    }
+
+    function getStatus() {
+        $.get('telek.txt', function(data) {
+            $('#display').html(data.replace('n',''));
+        });
+        setTimeout(getStatus, 1);
+    }
+
+    $("#up").click(function(){
+        $("#display").html("Searching up the next available frequency");
+        ws.send("up");
+        ws.onmessage = function(evt) {
+            $("#display").html("opening websocket");
+            getFreq(evt.data);
+        };
+    });
+
+    $("#down").click(function(){
+        $("#display").html("Searching down the next available frequency");
+        ws.send("down");
+        ws.onmessage = function(evt) {
+            $("#display").html("opening websocket");
+            getFreq(evt.data);
+        };
+    });
+
+    $("#off").click(function(){
+        $("#display").html("Turning off...");
+        ws.send("off");
+        ws.onmessage = function(evt) {
+            $("#display").html("Status: " + evt.data);
+            reducesignal(lastsignal,0);
+        };
+    });
+
+    $("#mute").click(function(){
+        $("#display").html("Muting...");
+        ws.send("mute");
+        ws.onmessage = function(evt) {
+            getFreq(evt.data);
+            var obj = jQuery.parseJSON(evt.data);
+            if(obj.mute)
+                $("#mute").text("Unmute");
+            else
+                $("#mute").text("Mute");
+        };
+    });
+
+    function increasesignal(start,end){
+        var index=start;
+        var delay = setInterval( function(){
+            if ( index <= end ){
+                $('#layerFill'+index).parent().addClass( 'on' );
+                index += 1;
+            }else{
+                clearInterval( delay );
+            }
+        }, 50 ); // Sped up the animation slightly for a snappier feel
+        lastsignal=end;
+    }
+
+    function reducesignal(start,end){
+        var index=start;
+        var delay = setInterval( function(){
+            if ( index > end ){
+                $('#layerFill'+index).parent().removeClass( 'on' );
+                index -= 1;
+            }else{
+                clearInterval( delay );
+            }
+        }, 50 );
+        lastsignal=end;
+    }
+});
+</script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>
+            <small>Raspberry Pi 3B & TEA5767</small>
+            Radio-Pi3B - FM Radio
+        </h1>
+        
+        <div id="station">--.-- <span style='font-size:0.5em; color:#888;'>MHz</span></div>
+        <div id="display">Awaiting connection...</div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button id="down">&lt;&lt; Tune Down</button>
+            <button id="mute">Mute</button>
+            <button id="up">Tune Up &gt;&gt;</button>
+        </div>
+
+        <!-- Signal Strength Bar -->
+        <ul id="loadbar">
+            <li><div id="layerFill1" class="bar"></div></li>
+            <li><div id="layerFill2" class="bar"></div></li>
+            <li><div id="layerFill3" class="bar"></div></li>
+            <li><div id="layerFill4" class="bar"></div></li>
+            <li><div id="layerFill5" class="bar"></div></li>
+            <li><div id="layerFill6" class="bar"></div></li>
+            <li><div id="layerFill7" class="bar"></div></li>
+            <li><div id="layerFill8" class="bar"></div></li>
+            <li><div id="layerFill9" class="bar"></div></li>
+            <li><div id="layerFill10" class="bar"></div></li>
+            <li><div id="layerFill11" class="bar"></div></li>
+            <li><div id="layerFill12" class="bar"></div></li>
+            <li><div id="layerFill13" class="bar"></div></li>
+            <li><div id="layerFill14" class="bar"></div></li>
+        </ul>
+
+        <button id="off">Turn Off</button>
+    </div>
+
+    <!-- Footer Section -->
+    <footer class="footer">
+        <div class="logo-container">        
+        <img src="images/bau_logo.png" alt="BAU Logo" class="footer-icon">
+         <img src="images/IEEE-ComSoc_Logo.png" alt="IEEE Logo" class="footer-icon"> 
+        </div>
+        <p class="footer-name">Developed by Lujain Ghazal</p>
+    </footer>
+</body>
+</html>
